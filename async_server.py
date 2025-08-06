@@ -3,7 +3,7 @@ import socket
 
 # 서버 설정
 HOST = '0.0.0.0'
-PORT = 65434
+PORT = 65432
 
 async def handle_client(reader, writer):
     """

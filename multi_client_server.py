@@ -41,6 +41,7 @@ def main():
     # - socket.AF_INET: IPv4 주소 체계
     # - socket.SOCK_STREAM: TCP 소켓
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+        # socket.SOL_SOCKET: 소켓 옵션 레벨
         # socket.SO_REUSEADDR: 소켓 주소 재사용 허용
         # 서버 재시작 시 "Address already in use" 에러 방지
         server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
