@@ -120,6 +120,89 @@ Access-Control-Request-Method: POST               # 실제 사용할 메서드
 Access-Control-Request-Headers: Content-Type     # 실제 사용할 헤더
 ```
 
+## 🚨 중요: CORS vs 서버 보안의 차이점
+
+### CORS = 브라우저 정책 (허가증)
+
+**CORS는 서버의 요청 처리를 막지 않습니다!** 대신 브라우저에게 "이 응답을 JavaScript에게 전달해도 된다"는 허가증을 보내는 것입니다.
+
+#### CORS 헤더가 없을 때:
+```
+1. 브라우저 → 서버: 요청 전송 ✅
+2. 서버: 요청 처리 ✅  
+3. 서버 → 브라우저: 응답 전송 ✅
+4. 브라우저: CORS 헤더 확인 → 없음 → JavaScript 접근 차단 ❌
+```
+
+#### CORS 헤더가 있을 때:
+```
+1. 브라우저 → 서버: 요청 전송 ✅
+2. 서버: 요청 처리 ✅
+3. 서버 → 브라우저: 응답 + CORS 헤더 전송 ✅
+4. 브라우저: CORS 헤더 확인 → 있음 → JavaScript 접근 허용 ✅
+```
+
+### 서버 미들웨어 = 실제 보안 (실제 차단)
+
+실제 서버 보안은 미들웨어에서 담당합니다:
+
+```python
+def handle_request(request):
+    # 1. 서버 차원의 보안 검사 (실제 차단)
+    auth_result = auth_middleware(request)
+    if auth_result:
+        return auth_result  # 401, 403 등으로 요청 자체를 거부
+    
+    rate_result = rate_limit_middleware(request)
+    if rate_result:
+        return rate_result  # 429 등으로 요청 자체를 거부
+    
+    # 2. 비즈니스 로직 실행
+    result = process_business_logic(request)
+    
+    # 3. 응답 생성
+    response = HTTPResponse.json(200, result)
+    
+    # 4. 브라우저 정책 설정 (차단이 아닌 허가)
+    response.headers['Access-Control-Allow-Origin'] = 'https://myapp.com'
+    
+    return response
+```
+
+### 역할 분담 표
+
+| 구분 | 서버 미들웨어 | CORS 헤더 |
+|------|---------------|-----------|
+| **목적** | 실제 보안/접근 제어 | 브라우저 정책 우회 |
+| **대상** | 모든 클라이언트 | 브라우저만 |
+| **효과** | 요청 자체를 차단 | 응답 전달 여부 결정 |
+| **적용 시점** | 요청 처리 전 | 응답 생성 후 |
+| **우회 가능성** | Postman으로도 차단됨 | Postman에서는 무시됨 |
+
+### 실제 보안 아키텍처
+
+```
+Client Request
+     ↓
+🛡️ Server Firewall (IP 차단)
+     ↓
+🛡️ Load Balancer (DDoS 방어)
+     ↓
+🛡️ API Gateway (Rate Limiting, API Key)
+     ↓
+🛡️ Auth Middleware (JWT, Session)
+     ↓
+🛡️ Authorization (권한 체크)
+     ↓
+💼 Business Logic (실제 처리)
+     ↓
+📦 Response + CORS Headers
+     ↓
+🌐 Browser (CORS 정책 적용)
+     ↓
+JavaScript Application
+```
+
 ## Python 웹 서버에서 CORS 구현
 
 ### HTTPResponse 클래스에 CORS 헤더 추가:
@@ -198,6 +281,7 @@ present on the requested resource.
 
 - **CORS**는 브라우저의 보안 정책으로 다른 Origin으로의 요청을 제어
 - **Same Origin Policy**를 완화하여 필요한 경우에만 cross-origin 요청 허용
-- **서버에서 적절한 CORS 헤더**를 보내야 브라우저가 요청을 허용
+- **CORS 헤더는 브라우저에게 보내는 허가증**이지, 서버의 실제 보안 차단이 아님
+- **실제 보안은 서버 미들웨어**에서 담당 (API 키, 인증, 권한 등)
 - **Postman 등 독립 클라이언트**는 CORS 정책의 영향을 받지 않음
 - **개발환경에서는 관대하게, 프로덕션에서는 엄격하게** 설정하는 것이 일반적
